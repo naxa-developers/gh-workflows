@@ -19,6 +19,10 @@ inputs:
     required: false
     default: '.aws/credentials'
     description: "Write aws credentials to file"
+  AWS_REGION: 
+    description: "AWS Region"
+    required: false
+    default: "ap-south-1"
 
 
 runs:
@@ -29,7 +33,7 @@ runs:
       if: ${{ inputs.USE_OIDC_FOR_AWS }} == 'true'
       with:
         audience: sts.amazonaws.com
-        aws-region: ${{ inputs.aws_region }}
+        aws-region: ${{ inputs.AWS_REGION }}
         role-session-name: GH-Actions-${{ github.run_id }}-${{ github.run_attempt }}
         role-to-assume: ${{ inputs.AWS_OIDC_ROLE_ARN }}
 
@@ -37,7 +41,7 @@ runs:
       uses: aws-actions/configure-aws-credentials@v4
       if: ${{ inputs.USE_OIDC_FOR_AWS }} == 'false'
       with:
-        aws-region: ${{ inputs.aws_region }}
+        aws-region: ${{ inputs.AWS_REGION }}
         aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
 
