@@ -22,15 +22,23 @@ on:
         required: false
         default: "0.54.12"
         type: string
+      aws-use-oidc:
+        description: "Prefer AWS OIDC auth"
+        default: "true"
+        type: string
       aws_region:
         description: "AWS Region"
         required: false
         default: "ap-south-1"
         type: string
-
-permissions:
-  id-token: write
-  contents: read
+      aws-access-key-id:
+        description: "AWS_ACCESS_KEY_ID required if not aws-use-oidc"
+        required: false
+        type: string
+      aws-secret-access-key:
+        description: "AWS_SECRET_ACCESS_KEY required if not aws-use-oidc"
+        required: false
+        type: string
 
 env:
   AWS_REGION: ${{ inputs.aws_region }}
@@ -44,6 +52,10 @@ jobs:
     name: Create Terragrunt Plan File
     runs-on: "ubuntu-latest"
 
+    permissions:
+      id-token: write
+      contents: read
+
     outputs:
       PLAN_FILE_NAME: ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}
 
@@ -54,8 +66,10 @@ jobs:
       - name: Setup AWS Credentials
         uses: naxa-developers/gh-workflows/.github/actions/configure_aws_credentials@master
         with:
-          USE_OIDC_FOR_AWS: "true"
+          USE_OIDC_FOR_AWS: ${{inputs.aws-use-oidc }}
           AWS_CONFIG_FILE_PATH: .aws/credentials
+          AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
 
       - name: Get output file directory name
         id: output_file_name
