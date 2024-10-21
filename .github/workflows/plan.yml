@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup AWS Credentials
-        uses: ./github/actions/configure_aws_credentials
+        uses: naxa-developers/gh-workflows/.github/actions/configure_aws_credentials@master
         with:
           USE_OIDC_FOR_AWS: "true"
           AWS_CONFIG_FILE_PATH: .aws/credentials
