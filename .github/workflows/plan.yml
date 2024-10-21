@@ -70,6 +70,7 @@ jobs:
           AWS_CONFIG_FILE_PATH: .aws/credentials
           AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
+          AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
 
       - name: Get output file directory name
         id: output_file_name

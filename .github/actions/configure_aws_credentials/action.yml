@@ -12,6 +12,9 @@ inputs:
     required: false
     default: 'false'
     description: "Use Github OIDC for AWS authentication"
+  AWS_OIDC_ROLE_ARN:
+    required: false
+    description: "OIDC role to assume"
   AWS_CONFIG_FILE_PATH:
     required: false
     default: '.aws/credentials'
@@ -28,7 +31,7 @@ runs:
         audience: sts.amazonaws.com
         aws-region: ${{ inputs.aws_region }}
         role-session-name: GH-Actions-${{ github.run_id }}-${{ github.run_attempt }}
-        role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+        role-to-assume: ${{ inputs.AWS_OIDC_ROLE_ARN }}
 
     - name: Setup AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
