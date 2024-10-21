@@ -1,10 +1,15 @@
-name: Terragrunt Plan
+name: Terragrunt Apply
 
 on:
   workflow_call:
     inputs:
       working_dir:
         description: "Directory containing root terragrunt.hcl"
+        required: false
+        default: ${{ github.workspace }}
+        type: string
+      plan_file_name:
+        description: "Enter Terragrunt Plan File name in s3 to run"
         required: true
         type: string
       terraform_version:
@@ -48,16 +53,13 @@ env:
   working_dir: ${{ inputs.working_dir }}
 
 jobs:
-  plan:
-    name: Create Terragrunt Plan File
+  apply:
+    name: Apply Terragrunt Plan File
     runs-on: "ubuntu-latest"
 
     permissions:
       id-token: write
       contents: read
-
-    outputs:
-      PLAN_FILE_NAME: ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}
 
     steps:
       - name: Checkout Repo
@@ -72,33 +74,16 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
 
-      - name: Get output file directory name
-        id: output_file_name
+      - name: Get Plan form S3
         run: |
-          export PLAN_FILE_NAME=${{ github.event.repository.name }}-${{ github.run_id }}-${{github.run_attempt}}
-          mkdir -p ${{env.working_dir}}/$PLAN_FILE_NAME
-          export USERID=$(id -u)
-          echo USERID=$USERID >> $GITHUB_OUTPUT
-          echo PLAN_FILE_NAME=$PLAN_FILE_NAME >> $GITHUB_OUTPUT
+          aws s3 cp s3://naxa-ci-artifacts/${{ inputs.plan_file_name }}/${{ inputs.plan_file_name }}.plan.out ${{ github.workspace }}/${{ inputs.plan_file_name }}.plan.out
 
-      - name: Terragrunt Plan
+      - name: Terragrunt Apply
         uses: gruntwork-io/terragrunt-action@v2
         env:
           AWS_SHARED_CREDENTIALS_FILE: ${{ github.workspace }}/.aws/credentials
-          INPUT_POST_EXEC_1: sudo chown -R ${{ steps.output_file_name.outputs.USERID }}:${{ steps.output_file_name.outputs.USERID }} .
-          INPUT_POST_EXEC_2: sudo chmod -R ugo+w .
-
         with:
           tf_version: ${{ env.tf_version }}
           tg_version: ${{ env.tg_version }}
           tg_dir: ${{ env.working_dir }}
-          tg_command: plan -out ./${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
-
-      - name: Push plan to s3
-        run: |
-          find_path=$(find . -iname ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out)
-          aws s3 cp $find_path s3://naxa-ci-artifacts/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
-
-      - name: Echo Plan name
-        run: |
-          echo "PLAN NAME = ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}"
+          tg_command: apply ${{ inputs.plan_file_name }}.plan.out
