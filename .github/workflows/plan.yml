@@ -1,0 +1,89 @@
+name: Terragrunt Plan
+
+on:
+  workflow_call:
+    inputs:
+      working_dir:
+        description: "Directory containing root terragrunt.hcl"
+        required: true
+        type: string
+      terraform_version:
+        description: "Terraform Version"
+        required: false
+        default: "1.6.0"
+        type: string
+      opentofu_version:
+        description: "Open Tofu Version"
+        required: false
+        default: "1.6.0"
+        type: string
+      terragrunt_version:
+        description: "Terragrunt Version"
+        required: false
+        default: "0.54.12"
+        type: string
+      aws_region:
+        description: "AWS Region"
+        required: false
+        default: "ap-south-1"
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ inputs.aws_region }}
+  tofu_version: ${{ inputs.opentofu_version }}
+  tf_version: ${{ inputs.terraform_version }}
+  tg_version: ${{ inputs.terragrunt_version }}
+  working_dir: ${{ inputs.working_dir }}
+
+jobs:
+  plan:
+    name: Create Terragrunt Plan File
+    runs-on: "ubuntu-latest"
+
+    outputs:
+      PLAN_FILE_NAME: ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup AWS Credentials
+        uses: ./github/actions/configure_aws_credentials
+        with:
+          USE_OIDC_FOR_AWS: "true"
+          AWS_CONFIG_FILE_PATH: .aws/credentials
+
+      - name: Get output file directory name
+        id: output_file_name
+        run: |
+          export PLAN_FILE_NAME=${{ github.event.repository.name }}-${{ github.run_id }}-${{github.run_attempt}}
+          mkdir -p ${{env.working_dir}}/$PLAN_FILE_NAME
+          export USERID=$(id -u)
+          echo USERID=$USERID >> $GITHUB_OUTPUT
+          echo PLAN_FILE_NAME=$PLAN_FILE_NAME >> $GITHUB_OUTPUT
+
+      - name: Terragrunt Plan
+        uses: gruntwork-io/terragrunt-action@v2
+        env:
+          AWS_SHARED_CREDENTIALS_FILE: /github/workspace/.aws/credentials
+          INPUT_POST_EXEC_1: sudo chown -R ${{ steps.output_file_name.outputs.USERID }}:${{ steps.output_file_name.outputs.USERID }} .
+          INPUT_POST_EXEC_2: sudo chmod -R ugo+w .
+
+        with:
+          tf_version: ${{ env.tf_version }}
+          tg_version: ${{ env.tg_version }}
+          tg_dir: ${{ env.working_dir }}
+          tg_command: plan -out ./${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
+
+      - name: Push plan to s3
+        run: |
+          find_path=$(find . -iname ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out)
+          aws s3 cp $find_path s3://naxa-ci-artifacts/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
+
+      - name: Echo Plan name
+        run: |
+          echo "PLAN NAME = ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}"
