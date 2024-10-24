@@ -76,7 +76,7 @@ jobs:
 
       - name: Get Plan form S3
         run: |
-          aws s3 cp s3://naxa-ci-artifacts/${{ inputs.plan_file_name }}/${{ inputs.plan_file_name }}.plan.out ${{ github.workspace }}/${{ inputs.plan_file_name }}.plan.out
+          aws s3 cp s3://naxa-ci-artifacts/${{ inputs.plan_file_name }}/${{ inputs.plan_file_name }}.plan.out ${{ inputs.working_dir }}/${{ inputs.plan_file_name }}.plan.out
 
       - name: Terragrunt Apply
         uses: gruntwork-io/terragrunt-action@v2
