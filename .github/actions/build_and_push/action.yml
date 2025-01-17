@@ -28,9 +28,6 @@ inputs:
     required: false
     default: '.'
     description: "The context for Docker build (default is the current directory)."
-  ADDITIONAL_BUILD_ARGS:
-    required: false
-    description: "Additional arguments for the Docker build (optional)."
   PIP_MODULES_FILE:
     required: false
     default: './dependencies/requirements_gis.txt'
@@ -70,7 +67,7 @@ runs:
         set -e
         docker build -f ${{ inputs.DOCKERFILE_PATH }} \
           -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:${{ inputs.BRANCH_NAME }} \
-          ${{ inputs.BUILD_CONTEXT }} ${inputs.ADDITIONAL_BUILD_ARGS}
+          ${{ inputs.BUILD_CONTEXT }}
         
     - name: Push Docker Image to ECR
       shell: bash
