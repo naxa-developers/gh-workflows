@@ -11,6 +11,9 @@ inputs:
   AWS_REGION:
     required: true
     description: "AWS region for configuring AWS credentials."
+  BRANCH_NAME:
+    required: true
+    description: "Branch executing workflow"
   ECR_REGISTRY:
     required: true
     description: "Amazon ECR registry URL."
@@ -39,19 +42,11 @@ inputs:
 
 runs:
   using: 'composite'
-  outputs:
-    branch: ${{ steps.extract_branch.outputs.branch }}
   steps:
-    - name: Extract Branch Name
-      shell: bash
-      run: |
-        echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-      id: extract_branch
-    
-    - name: Checkout Code for Branch ${{ steps.extract_branch.outputs.branch }}
+    - name: Checkout Code
       uses: actions/checkout@v4
       with:
-        ref: ${{ steps.extract_branch.outputs.branch }}
+        ref: ${{ inputs.BRANCH_NAME }}
 
     - name: Copy Dependency Files
       shell: bash
@@ -74,10 +69,10 @@ runs:
       run: |
         set -e
         docker build -f ${{ inputs.DOCKERFILE_PATH }} \
-          -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:${{ steps.extract_branch.outputs.branch }} \
+          -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:${{ inputs.BRANCH_NAME }} \
           ${{ inputs.BUILD_CONTEXT }} ${inputs.ADDITIONAL_BUILD_ARGS}
         
     - name: Push Docker Image to ECR
       shell: bash
       run: |
-        docker push ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:${{ steps.extract_branch.outputs.branch }}
+        docker push ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:${{ inputs.BRANCH_NAME }}
