@@ -1,0 +1,94 @@
+name: Deploy Docker Image
+description: Pulls and Deploys a Docker image to a server using SSH and Docker Compose.
+
+inputs:
+  SSH_PRIVATE_KEY:
+    required: true
+    description: "The SSH private key to connect to the deployment server."
+  AWS_ACCESS_KEY_ID:
+    required: true
+    description: "AWS access key for configuring AWS credentials."
+  AWS_SECRET_ACCESS_KEY:
+    required: true
+    description: "AWS secret key for configuring AWS credentials."
+  AWS_REGION:
+    required: true
+    description: "AWS region for configuring AWS credentials."
+  ECR_REGISTRY:
+    required: true
+    description: "Amazon ECR registry URL."
+  ECR_REPOSITORY:
+    required: true
+    description: "Amazon ECR repository name."
+  DEPLOYMENT_SERVER_IP:
+    required: true
+    description: "The IP address of the deployment server."
+  DEPLOYMENT_SERVER_USERNAME:
+    required: true
+    default: 'ubuntu'
+    description: "The SSH username for the deployment server."
+  MACHINE_IDENTITY_CLIENT_ID:
+    required: true
+    description: "The Identity client ID Generated from Infisical"
+  MACHINE_IDENTITY_CLIENT_SECRET:
+    required: true
+    description: "The Identity client secret Generated from Infisical"
+  PROJECT_SLUG:
+    required: true
+    description: "The unique identifier for the projects in Infisical"
+  
+
+runs:
+  using: 'composite'
+  outputs:
+    branch: ${{ steps.extract_branch.outputs.branch }}
+  steps:
+    - name: Extract Branch Name
+      shell: bash
+      run: |
+        echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+      id: extract_branch
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Configure SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        touch ~/.ssh/id_rsa
+        chmod 666 ~/.ssh/id_rsa
+        echo "${{ inputs.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 400 ~/.ssh/id_rsa
+        ssh-keyscan ${{ inputs.DEPLOYMENT_SERVER_IP }} >> ~/.ssh/known_hosts
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ inputs.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Generate Environment Variables from Secrets
+      uses: Infisical/secrets-action@v1.0.7
+      with:
+        client-id: ${{ inputs.MACHINE_IDENTITY_CLIENT_ID }}
+        client-secret: ${{ inputs.MACHINE_IDENTITY_CLIENT_SECRET }}
+        env-slug: ${{ steps.extract_branch.outputs.branch }}
+        project-slug: ${{ inputs.PROJECT_SLUG }}
+        export-type: "file"
+        file-output-path: "/.env"
+        domain: https://secrets.naxa.com.np
+
+    - name: Copy Docker Compose File
+      run: |
+        cp ./docker/server/docker-compose.${{ steps.extract_branch.outputs.branch }}.yml docker-compose.yml
+
+    - name: Pull and Deploy Docker Image to Server
+      run: |
+        docker compose --file docker-compose.yml pull
+        docker compose --file docker-compose.yml up --detach
+      env:
+        DOCKER_HOST: ssh://${{ inputs.DEPLOYMENT_SERVER_USERNAME }}@${{ inputs.DEPLOYMENT_SERVER_IP }}

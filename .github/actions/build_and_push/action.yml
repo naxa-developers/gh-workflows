@@ -1,0 +1,83 @@
+name: Build Docker Image
+description: Builds and pushes a Docker image to AWS ECR.
+
+inputs:
+  AWS_ACCESS_KEY_ID:
+    required: true
+    description: "AWS access key for configuring AWS credentials."
+  AWS_SECRET_ACCESS_KEY:
+    required: true
+    description: "AWS secret key for configuring AWS credentials."
+  AWS_REGION:
+    required: true
+    description: "AWS region for configuring AWS credentials."
+  ECR_REGISTRY:
+    required: true
+    description: "Amazon ECR registry URL."
+  ECR_REPOSITORY:
+    required: true
+    description: "Amazon ECR repository name."
+  DOCKERFILE_PATH:
+    required: false
+    default: './docker/Dockerfile'
+    description: "Path to the Dockerfile for building the image."
+  BUILD_CONTEXT:
+    required: false
+    default: '.'
+    description: "The context for Docker build (default is the current directory)."
+  ADDITIONAL_BUILD_ARGS:
+    required: false
+    description: "Additional arguments for the Docker build (optional)."
+  PIP_MODULES_FILE:
+    required: false
+    default: './dependencies/requirements_gis.txt'
+    description: "Path to the pip modules requirements file."
+  APT_MODULES_FILE:
+    required: false
+    default: './dependencies/apt_requirements_gis.txt'
+    description: "Path to the apt dependencies requirements file."
+
+runs:
+  using: 'composite'
+  outputs:
+    branch: ${{ steps.extract_branch.outputs.branch }}
+  steps:
+    - name: Extract Branch Name
+      shell: bash
+      run: |
+        echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+      id: extract_branch
+    
+    - name: Checkout Code for Branch ${{ steps.extract_branch.outputs.branch }}
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ steps.extract_branch.outputs.branch }}
+
+    - name: Copy Dependency Files
+      shell: bash
+      run: |
+        cp ${{ inputs.APT_MODULES_FILE }} apt_requirements.txt
+        cp ${{ inputs.PIP_MODULES_FILE }} requirements.txt
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ inputs.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Build Docker Image
+      shell: bash
+      run: |
+        set -e
+        docker build -f ${{ inputs.DOCKERFILE_PATH }} \
+          -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:${{ steps.extract_branch.outputs.branch }} \
+          ${{ inputs.BUILD_CONTEXT }} ${inputs.ADDITIONAL_BUILD_ARGS}
+        
+    - name: Push Docker Image to ECR
+      shell: bash
+      run: |
+        docker push ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:${{ steps.extract_branch.outputs.branch }}
