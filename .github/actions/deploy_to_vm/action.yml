@@ -36,19 +36,13 @@ inputs:
   PROJECT_SLUG:
     required: true
     description: "The unique identifier for the projects in Infisical"
-  
+  BRANCH_NAME:
+    required: true
+    description: "Branch executing workflow"
 
 runs:
   using: 'composite'
-  outputs:
-    branch: ${{ steps.extract_branch.outputs.branch }}
   steps:
-    - name: Extract Branch Name
-      shell: bash
-      run: |
-        echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-      id: extract_branch
-
     - name: Checkout Repository
       uses: actions/checkout@v4
 
@@ -76,7 +70,7 @@ runs:
       with:
         client-id: ${{ inputs.MACHINE_IDENTITY_CLIENT_ID }}
         client-secret: ${{ inputs.MACHINE_IDENTITY_CLIENT_SECRET }}
-        env-slug: ${{ steps.extract_branch.outputs.branch }}
+        env-slug: ${{ inputs.BRANCH_NAME }}
         project-slug: ${{ inputs.PROJECT_SLUG }}
         export-type: "file"
         file-output-path: "/.env"
@@ -84,7 +78,7 @@ runs:
 
     - name: Copy Docker Compose File
       run: |
-        cp ./docker/server/docker-compose.${{ steps.extract_branch.outputs.branch }}.yml docker-compose.yml
+        cp ./docker/server/docker-compose.${{ inputs.BRANCH_NAME }}.yml docker-compose.yml
 
     - name: Pull and Deploy Docker Image to Server
       run: |
