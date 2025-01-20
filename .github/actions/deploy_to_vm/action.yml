@@ -47,6 +47,7 @@ runs:
       uses: actions/checkout@v4
 
     - name: Configure SSH Key
+      shell: bash
       run: |
         mkdir -p ~/.ssh
         touch ~/.ssh/id_rsa
@@ -77,10 +78,12 @@ runs:
         domain: https://secrets.naxa.com.np
 
     - name: Copy Docker Compose File
+      shell: bash
       run: |
         cp ./docker/server/docker-compose.${{ inputs.BRANCH_NAME }}.yml docker-compose.yml
 
     - name: Pull and Deploy Docker Image to Server
+      shell: bash
       run: |
         docker compose --file docker-compose.yml pull
         docker compose --file docker-compose.yml up --detach
