@@ -3,6 +3,11 @@ name: Terragrunt Plan
 on:
   workflow_call:
     inputs:
+      load_env:
+        description: "Load environment variables from GitHub Variables and Secret context."
+        required: false
+        type: boolean
+        default: false
       working_dir:
         description: "Directory containing root terragrunt.hcl"
         required: true
@@ -63,6 +68,33 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
+      - name: Load Environment from GitHub variables & secrets.
+        shell: bash
+        env:
+          GIT_BRANCH: ${{ github.ref_name }}
+          VARS_CONTEXT: ${{ toJson(vars) }}
+          SECRETS_CONTEXT: ${{ toJson(secrets) }}
+        run: |
+          # Random delimeter string for security
+          delim=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+
+          # Parse JSON with multiline strings, using delimeter (Github specific)
+          to_envs() { jq -r "to_entries[] | \"\(.key)<<$delim\n\(.value)\n$delim\n\""; }
+
+          # Set vars to env for next step
+          echo "GIT_BRANCH=${GIT_BRANCH}" >> $GITHUB_ENV
+          echo "TAG_OVERRIDE=${TAG_OVERRIDE}" >> $GITHUB_ENV
+
+          # Set VARS_CONTEXT if not null
+          if [ "${VARS_CONTEXT}" != "null" ]; then
+            echo "${VARS_CONTEXT}" | to_envs >> $GITHUB_ENV
+          fi
+
+          # Set SECRETS_CONTEXT if not null
+          if [ "${SECRETS_CONTEXT}" != "null" ]; then
+            echo "${SECRETS_CONTEXT}" | to_envs >> $GITHUB_ENV
+          fi
+
       - name: Setup AWS Credentials
         uses: naxa-developers/gh-workflows/.github/actions/configure_aws_credentials@master
         with:
@@ -88,7 +120,6 @@ jobs:
           INPUT_PRE_EXEC_1: export TERRAGRUNT_GIT_REPO_NAME=${{ github.event.repository.name }}
           INPUT_POST_EXEC_1: sudo chown -R ${{ steps.output_file_name.outputs.USERID }}:${{ steps.output_file_name.outputs.USERID }} .
           INPUT_POST_EXEC_2: sudo chmod -R ugo+w .
-
         with:
           tf_version: ${{ env.tf_version }}
           tg_version: ${{ env.tg_version }}

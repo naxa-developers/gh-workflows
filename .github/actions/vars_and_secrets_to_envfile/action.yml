@@ -1,0 +1,55 @@
+name: Create env file from GitHub Variables and Secret context.
+description: Create env file from GitHub Variables and Secret context or load secrets to GITHUB_ENV context.
+
+inputs:
+  VARIABLES:
+    required: false
+    description: "Write variables content in env file"
+  SECRETS:
+    required: false
+    description: "Write secrets content in env file"
+  ENV_FILE_PATH:
+    required: false
+    description: "Path to create env file. Environment file not created it path not provided. It will only be loaded into $GITHUB_ENV context."
+
+runs:
+  using: 'composite'
+  steps:
+      - name: Vars and Secrets to Env
+        shell: bash
+        env:
+          GIT_BRANCH: ${{ github.ref_name }}
+          VARS_CONTEXT: ${{ toJson(vars) }}
+          SECRETS_CONTEXT: ${{ toJson(secrets) }}
+        run: |
+          # Random delimeter string for security
+          delim=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+
+          # Parse JSON with multiline strings, using delimeter (Github specific)
+          to_envs() { jq -r "to_entries[] | \"\(.key)<<$delim\n\(.value)\n$delim\n\""; }
+
+          # Set vars to env for next step
+          echo "GIT_BRANCH=${GIT_BRANCH}" >> $GITHUB_ENV
+          echo "TAG_OVERRIDE=${TAG_OVERRIDE}" >> $GITHUB_ENV
+
+          # Set VARS_CONTEXT if not null
+          if [ "${VARS_CONTEXT}" != "null" ]; then
+            echo "${VARS_CONTEXT}" | to_envs >> $GITHUB_ENV
+          fi
+
+          # Set SECRETS_CONTEXT if not null
+          if [ "${SECRETS_CONTEXT}" != "null" ]; then
+            echo "${SECRETS_CONTEXT}" | to_envs >> $GITHUB_ENV
+          fi
+
+      - name: Create Environment file
+        shell: bash
+        if: ${{ inputs.ENV_FILE_PATH }}
+        env:
+          ENV_FILE_PATH: ${{ inputs.ENV_FILE_PATH }}
+        run: |
+          echo "Writing environment variables to ${ENV_FILE_PATH}"
+          touch ${ENV_FILE_PATH}
+
+          echo "GIT_BRANCH=${GIT_BRANCH}" >> ${ENV_FILE_PATH}
+          echo "TAG_OVERRIDE=${TAG_OVERRIDE}" >> ${ENV_FILE_PATH}
