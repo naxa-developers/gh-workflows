@@ -3,6 +3,11 @@ name: Terragrunt Apply
 on:
   workflow_call:
     inputs:
+      load_env:
+        description: "Load environment variables from GitHub Variables and Secret context."
+        required: false
+        type: boolean
+        default: false
       working_dir:
         description: "Directory containing root terragrunt.hcl"
         required: false
@@ -64,6 +69,9 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
+
+      - name: Load Environment from GitHub variables & secrets.
+        uses: naxa-developers/gh-workflows/.github/actions/vars_and_secrets_to_envfile@master
 
       - name: Setup AWS Credentials
         uses: naxa-developers/gh-workflows/.github/actions/configure_aws_credentials@master

@@ -3,6 +3,11 @@ name: Terragrunt Plan
 on:
   workflow_call:
     inputs:
+      load_env:
+        description: "Load environment variables from GitHub Variables and Secret context."
+        required: false
+        type: boolean
+        default: false
       working_dir:
         description: "Directory containing root terragrunt.hcl"
         required: true
@@ -63,6 +68,9 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
+      - name: Load Environment from GitHub variables & secrets.
+        uses: naxa-developers/gh-workflows/.github/actions/vars_and_secrets_to_envfile@master
+          
       - name: Setup AWS Credentials
         uses: naxa-developers/gh-workflows/.github/actions/configure_aws_credentials@master
         with:
@@ -87,7 +95,6 @@ jobs:
           AWS_SHARED_CREDENTIALS_FILE: ${{ github.workspace }}/.aws/credentials
           INPUT_POST_EXEC_1: sudo chown -R ${{ steps.output_file_name.outputs.USERID }}:${{ steps.output_file_name.outputs.USERID }} .
           INPUT_POST_EXEC_2: sudo chmod -R ugo+w .
-
         with:
           tf_version: ${{ env.tf_version }}
           tg_version: ${{ env.tg_version }}
