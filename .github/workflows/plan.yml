@@ -128,7 +128,8 @@ jobs:
 
       - name: Push plan to s3
         run: |
-          find_path=$(find . -iname ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out)
+          # find_path=$(find . -iname ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out)
+          find_path=$(find ${{env.working_dir}} -iname ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out)
           aws s3 cp $find_path s3://naxa-ci-artifacts/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
 
       - name: Echo Plan name
