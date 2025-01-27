@@ -152,16 +152,16 @@ jobs:
 
       - name: Upload Plan to GitHub Artifacts
         if: ${{ inputs.use_gh_artifacts == true }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}-${{ github.run_id }}-${{github.run_attempt}}
+          name: ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}
           path: ./${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
 
       - name: Echo Plan name
         shell: bash
         run: |
           if [ "${{ inputs.use_gh_artifacts }}" == "true" ]; then
-            echo "Plan file name => ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}-${{ github.run_id }}-${{github.run_attempt}}"
+            echo "Plan file name => ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}"
           else
             echo "Plan file name => ${{ steps.output_file_name.outputs.PLAN_FILE_S3_PATH }}"
           fi

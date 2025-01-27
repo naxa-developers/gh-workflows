@@ -84,12 +84,23 @@ jobs:
         run: |
           aws s3 cp s3://${{ inputs.plan_file_name }}.plan.out ${{ inputs.working_dir }}/${{ inputs.plan_file_name }}.plan.out
 
+      - name: Extract Artifact Run ID
+        if: ${{ inputs.use_gh_artifacts == true }}
+        id: extract_artifact_run_id
+        shell: bash
+        run: |
+          result=$(echo "${{ inputs.plan_file_name }}" | awk -F'-' '{print $(NF-1)}')
+          echo "ARTIFACT_RUN_ID=$result" >> $GITHUB_ENV
+
       - name: Get Plan from GitHub Artifacts
         if: ${{ inputs.use_gh_artifacts == true }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.plan_file_name }}
           path: ${{ inputs.working_dir }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.extract_artifact_run_id.outputs.ARTIFACT_RUN_ID }}
 
       - name: Terragrunt Apply
         uses: gruntwork-io/terragrunt-action@v2
