@@ -50,8 +50,8 @@ on:
         default: true
         type: boolean
       aws-ci-artifact-bucket-path:
-        description: "AWS CI Artifact Bucket Name and Path. Ex: naxa-ci-artifacts/some-prefix"
-        required: true
+        description: "AWS CI Artifact Bucket Name and Path. Ex: naxa-ci-artifacts/some-prefix. Required if use_gh_artifacts is false"
+        required: false
         type: string
 
 env:
