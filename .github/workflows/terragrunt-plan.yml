@@ -7,7 +7,7 @@ on:
         description: "Load environment variables from GitHub Variables and Secret context."
         required: false
         type: boolean
-        default: false
+        default: true
       working_dir:
         description: "Directory containing root terragrunt.hcl"
         required: true
@@ -44,6 +44,15 @@ on:
         description: "AWS_SECRET_ACCESS_KEY required if not aws-use-oidc"
         required: false
         type: string
+      use_gh_artifacts:
+        description: "Use GitHub Artifacts to store plan file"
+        required: false
+        default: true
+        type: boolean
+      aws-ci-artifact-bucket-path:
+        description: "AWS CI Artifact Bucket Name and Path. Ex: naxa-ci-artifacts/some-prefix. Required if use_gh_artifacts is false"
+        required: false
+        type: string
 
 env:
   AWS_REGION: ${{ inputs.aws_region }}
@@ -70,6 +79,7 @@ jobs:
 
       - name: Load Environment from GitHub variables & secrets.
         shell: bash
+        if: ${{ inputs.load_env == true }}
         env:
           GIT_BRANCH: ${{ github.ref_name }}
           VARS_CONTEXT: ${{ toJson(vars) }}
@@ -111,6 +121,7 @@ jobs:
           mkdir -p ${{env.working_dir}}/$PLAN_FILE_NAME
           export USERID=$(id -u)
           echo USERID=$USERID >> $GITHUB_OUTPUT
+          echo PLAN_FILE_S3_PATH=${{ inputs.aws-ci-artifact-bucket-path }}/$PLAN_FILE_NAME/$PLAN_FILE_NAME >> $GITHUB_OUTPUT
           echo PLAN_FILE_NAME=$PLAN_FILE_NAME >> $GITHUB_OUTPUT
 
       - name: Terragrunt Plan
@@ -126,12 +137,32 @@ jobs:
           tg_dir: ${{ env.working_dir }}
           tg_command: plan -out ./${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
 
-      - name: Push plan to s3
+      - name: Get Plan File Path
+        id: get_plan_file_path
+        shell: bash
         run: |
-          # find_path=$(find . -iname ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out)
           find_path=$(find ${{env.working_dir}} -iname ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out)
-          aws s3 cp $find_path s3://naxa-ci-artifacts/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
+          cp -rp $find_path ./${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
+          echo PLAN_FILE_LOCAL_PATH=$find_path >> $GITHUB_OUTPUT
+
+      - name: Push plan to s3
+        if: ${{ inputs.use_gh_artifacts == false }}
+        run: |
+          aws s3 cp ./${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out s3://${{ inputs.aws-ci-artifact-bucket-path }}/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}/${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
+
+      - name: Upload Plan to GitHub Artifacts
+        if: ${{ inputs.use_gh_artifacts == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}
+          path: ./${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
+          retention-days: 1
 
       - name: Echo Plan name
+        shell: bash
         run: |
-          echo "PLAN NAME = ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}"
+          if [ "${{ inputs.use_gh_artifacts }}" == "true" ]; then
+            echo "Plan file name => ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}"
+          else
+            echo "Plan file name => ${{ steps.output_file_name.outputs.PLAN_FILE_S3_PATH }}"
+          fi

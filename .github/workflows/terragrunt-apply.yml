@@ -3,18 +3,13 @@ name: Terragrunt Apply
 on:
   workflow_call:
     inputs:
-      load_env:
-        description: "Load environment variables from GitHub Variables and Secret context."
-        required: false
-        type: boolean
-        default: false
       working_dir:
         description: "Directory containing root terragrunt.hcl"
         required: false
         default: ${{ github.workspace }}
         type: string
       plan_file_name:
-        description: "Enter Terragrunt Plan File name in s3 to run"
+        description: "Enter Terragrunt Plan File name to run. If using s3 as artifact store pass s3 path here. Ex: naxa-ci-artifacts/some-prefix/plan"
         required: true
         type: string
       terraform_version:
@@ -49,6 +44,11 @@ on:
         description: "AWS_SECRET_ACCESS_KEY required if not aws-use-oidc"
         required: false
         type: string
+      use_gh_artifacts:
+        description: "Use GitHub Artifacts to store plan file"
+        required: false
+        default: true
+        type: boolean
 
 env:
   AWS_REGION: ${{ inputs.aws_region }}
@@ -70,33 +70,6 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Load Environment from GitHub variables & secrets.
-        shell: bash
-        env:
-          GIT_BRANCH: ${{ github.ref_name }}
-          VARS_CONTEXT: ${{ toJson(vars) }}
-          SECRETS_CONTEXT: ${{ toJson(secrets) }}
-        run: |
-          # Random delimeter string for security
-          delim=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-
-          # Parse JSON with multiline strings, using delimeter (Github specific)
-          to_envs() { jq -r "to_entries[] | \"\(.key)<<$delim\n\(.value)\n$delim\n\""; }
-
-          # Set vars to env for next step
-          echo "GIT_BRANCH=${GIT_BRANCH}" >> $GITHUB_ENV
-          echo "TAG_OVERRIDE=${TAG_OVERRIDE}" >> $GITHUB_ENV
-
-          # Set VARS_CONTEXT if not null
-          if [ "${VARS_CONTEXT}" != "null" ]; then
-            echo "${VARS_CONTEXT}" | to_envs >> $GITHUB_ENV
-          fi
-
-          # Set SECRETS_CONTEXT if not null
-          if [ "${SECRETS_CONTEXT}" != "null" ]; then
-            echo "${SECRETS_CONTEXT}" | to_envs >> $GITHUB_ENV
-          fi
-
       - name: Setup AWS Credentials
         uses: naxa-developers/gh-workflows/.github/actions/configure_aws_credentials@master
         with:
@@ -107,8 +80,27 @@ jobs:
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
 
       - name: Get Plan form S3
+        if: ${{ inputs.use_gh_artifacts == false }}
         run: |
-          aws s3 cp s3://naxa-ci-artifacts/${{ inputs.plan_file_name }}/${{ inputs.plan_file_name }}.plan.out ${{ inputs.working_dir }}/${{ inputs.plan_file_name }}.plan.out
+          aws s3 cp s3://${{ inputs.plan_file_name }}.plan.out ${{ inputs.working_dir }}/${{ inputs.plan_file_name }}.plan.out
+
+      - name: Extract Artifact Run ID
+        if: ${{ inputs.use_gh_artifacts == true }}
+        id: extract_artifact_run_id
+        shell: bash
+        run: |
+          result=$(echo "${{ inputs.plan_file_name }}" | awk -F'-' '{print $(NF-1)}')
+          echo "ARTIFACT_RUN_ID=$result" >> $GITHUB_OUTPUT
+
+      - name: Get Plan from GitHub Artifacts
+        if: ${{ inputs.use_gh_artifacts == true }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.plan_file_name }}
+          path: ${{ inputs.working_dir }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.extract_artifact_run_id.outputs.ARTIFACT_RUN_ID }}
 
       - name: Terragrunt Apply
         uses: gruntwork-io/terragrunt-action@v2
