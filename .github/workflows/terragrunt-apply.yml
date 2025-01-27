@@ -90,7 +90,7 @@ jobs:
         shell: bash
         run: |
           result=$(echo "${{ inputs.plan_file_name }}" | awk -F'-' '{print $(NF-1)}')
-          echo "ARTIFACT_RUN_ID=$result" >> $GITHUB_ENV
+          echo "ARTIFACT_RUN_ID=$result" >> $GITHUB_OUTPUT
 
       - name: Get Plan from GitHub Artifacts
         if: ${{ inputs.use_gh_artifacts == true }}

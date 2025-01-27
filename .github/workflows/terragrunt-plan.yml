@@ -156,6 +156,7 @@ jobs:
         with:
           name: ${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}
           path: ./${{ steps.output_file_name.outputs.PLAN_FILE_NAME }}.plan.out
+          retention-days: 1
 
       - name: Echo Plan name
         shell: bash
