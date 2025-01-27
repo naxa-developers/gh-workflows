@@ -8,8 +8,8 @@ on:
         required: false
         default: ${{ github.workspace }}
         type: string
-      plan_file_path_on_s3:
-        description: "Enter Terragrunt Plan File path in s3 to run"
+      plan_file_name:
+        description: "Enter Terragrunt Plan File name to run. If using s3 as artifact store pass s3 path here. Ex: naxa-ci-artifacts/some-prefix/plan"
         required: true
         type: string
       terraform_version:
@@ -44,6 +44,11 @@ on:
         description: "AWS_SECRET_ACCESS_KEY required if not aws-use-oidc"
         required: false
         type: string
+      use_gh_artifacts:
+        description: "Use GitHub Artifacts to store plan file"
+        required: false
+        default: true
+        type: boolean
 
 env:
   AWS_REGION: ${{ inputs.aws_region }}
@@ -75,8 +80,16 @@ jobs:
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
 
       - name: Get Plan form S3
+        if: ${{ inputs.use_gh_artifacts == false }}
         run: |
-          aws s3 cp s3://${{ inputs.plan_file_path_on_s3 }}.plan.out ${{ inputs.working_dir }}/${{ github.run_id }}.plan.out
+          aws s3 cp s3://${{ inputs.plan_file_name }}.plan.out ${{ inputs.working_dir }}/${{ inputs.plan_file_name }}.plan.out
+
+      - name: Get Plan from GitHub Artifacts
+        if: ${{ inputs.use_gh_artifacts == true }}
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ inputs.plan_file_name }}
+          path: ${{ inputs.working_dir }}
 
       - name: Terragrunt Apply
         uses: gruntwork-io/terragrunt-action@v2
@@ -87,4 +100,4 @@ jobs:
           tf_version: ${{ env.tf_version }}
           tg_version: ${{ env.tg_version }}
           tg_dir: ${{ env.working_dir }}
-          tg_command: apply ${{ github.run_id }}.plan.out
+          tg_command: apply ${{ inputs.plan_file_name }}.plan.out
