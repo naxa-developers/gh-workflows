@@ -1,15 +1,15 @@
-name: Terragrunt Apply
+name: Terragrunt Plan All
 
 on:
   workflow_call:
     inputs:
+      load_env:
+        description: "Load environment variables from GitHub Variables and Secret context."
+        required: false
+        type: boolean
+        default: false
       working_dir:
         description: "Directory containing root terragrunt.hcl"
-        required: false
-        default: ${{ github.workspace }}
-        type: string
-      plan_file_path_on_s3:
-        description: "Enter Terragrunt Plan File path in s3 to run"
         required: true
         type: string
       terraform_version:
@@ -53,8 +53,8 @@ env:
   working_dir: ${{ inputs.working_dir }}
 
 jobs:
-  apply:
-    name: Apply Terragrunt Plan File
+  plan:
+    name: Create Terragrunt Plan File
     runs-on: "ubuntu-latest"
 
     permissions:
@@ -65,6 +65,33 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
+      - name: Load Environment from GitHub variables & secrets.
+        shell: bash
+        env:
+          GIT_BRANCH: ${{ github.ref_name }}
+          VARS_CONTEXT: ${{ toJson(vars) }}
+          SECRETS_CONTEXT: ${{ toJson(secrets) }}
+        run: |
+          # Random delimeter string for security
+          delim=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+
+          # Parse JSON with multiline strings, using delimeter (Github specific)
+          to_envs() { jq -r "to_entries[] | \"\(.key)<<$delim\n\(.value)\n$delim\n\""; }
+
+          # Set vars to env for next step
+          echo "GIT_BRANCH=${GIT_BRANCH}" >> $GITHUB_ENV
+          echo "TAG_OVERRIDE=${TAG_OVERRIDE}" >> $GITHUB_ENV
+
+          # Set VARS_CONTEXT if not null
+          if [ "${VARS_CONTEXT}" != "null" ]; then
+            echo "${VARS_CONTEXT}" | to_envs >> $GITHUB_ENV
+          fi
+
+          # Set SECRETS_CONTEXT if not null
+          if [ "${SECRETS_CONTEXT}" != "null" ]; then
+            echo "${SECRETS_CONTEXT}" | to_envs >> $GITHUB_ENV
+          fi
+
       - name: Setup AWS Credentials
         uses: naxa-developers/gh-workflows/.github/actions/configure_aws_credentials@master
         with:
@@ -74,11 +101,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
 
-      - name: Get Plan form S3
-        run: |
-          aws s3 cp s3://${{ inputs.plan_file_path_on_s3 }}.plan.out ${{ inputs.working_dir }}/${{ github.run_id }}.plan.out
-
-      - name: Terragrunt Apply
+      - name: Terragrunt Plan
         uses: gruntwork-io/terragrunt-action@v2
         env:
           AWS_SHARED_CREDENTIALS_FILE: ${{ github.workspace }}/.aws/credentials
@@ -87,4 +110,4 @@ jobs:
           tf_version: ${{ env.tf_version }}
           tg_version: ${{ env.tg_version }}
           tg_dir: ${{ env.working_dir }}
-          tg_command: apply ${{ github.run_id }}.plan.out
+          tg_command: run-all plan
