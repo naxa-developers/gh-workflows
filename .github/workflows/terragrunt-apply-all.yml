@@ -3,6 +3,14 @@ name: Terragrunt Apply All
 on:
   workflow_call:
     inputs:
+      environment_name:
+        description: "The Github environment name to get variables from. Default repository vars."
+        required: false
+        type: string
+      environment_url:
+        description: "URL that gets deployed with Github environment."
+        required: false
+        type: string
       load_env:
         description: "Load environment variables from GitHub Variables and Secret context."
         required: false
@@ -57,6 +65,10 @@ jobs:
     name: Create Terragrunt Plan File
     runs-on: "ubuntu-latest"
 
+    environment:
+      name: ${{ inputs.environment_name }}
+      url: ${{ inputs.environment_url }}
+
     permissions:
       id-token: write
       contents: read
@@ -93,7 +105,7 @@ jobs:
           fi
 
       - name: Setup AWS Credentials
-        uses: naxa-developers/gh-workflows/.github/actions/configure_aws_credentials@master
+        uses: naxa-developers/gh-workflows/.github/actions/configure_aws_credentials@configure_aws_credentials/v1
         with:
           USE_OIDC_FOR_AWS: ${{inputs.aws-use-oidc }}
           AWS_CONFIG_FILE_PATH: ${{ github.workspace }}/.aws/credentials
