@@ -36,6 +36,9 @@ inputs:
     required: false
     default: './dependencies/apt_requirements_gis.txt'
     description: "Path to the apt dependencies requirements file."
+  IMAGE_TAG:
+    required: false
+    description: "Docker Image tag while pushing to ECR, default will be BRANCH NAME"
 
 runs:
   using: 'composite'
@@ -65,8 +68,14 @@ runs:
       shell: bash
       run: |
         set -e
+        IMAGE_TAG="${{ inputs.IMAGE_TAG }}"
+        if [[ -z "$IMAGE_TAG" ]]; then
+          IMAGE_TAG="${{ inputs.BRANCH_NAME }}"
+        fi
+        echo "Using IMAGE_TAG: $IMAGE_TAG"
+
         docker build -f ${{ inputs.DOCKERFILE_PATH }} \
-          -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:${{ inputs.BRANCH_NAME }} \
+          -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:$IMAGE_TAG \
           ${{ inputs.BUILD_CONTEXT }}
         
     - name: Push Docker Image to ECR
