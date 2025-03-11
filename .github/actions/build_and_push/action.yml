@@ -64,16 +64,19 @@ runs:
     - name: Login to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v2
     
-    - name: Build Docker Image
+    - name: Set IMAGE_TAG
       shell: bash
       run: |
-        set -e
         IMAGE_TAG="${{ inputs.IMAGE_TAG }}"
         if [[ -z "$IMAGE_TAG" ]]; then
           IMAGE_TAG="${{ inputs.BRANCH_NAME }}"
         fi
         echo "Using IMAGE_TAG: $IMAGE_TAG"
-
+        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV 
+    
+    - name: Build Docker Image
+      shell: bash
+      run: |
         docker build -f ${{ inputs.DOCKERFILE_PATH }} \
           -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:$IMAGE_TAG \
           ${{ inputs.BUILD_CONTEXT }}
@@ -81,4 +84,4 @@ runs:
     - name: Push Docker Image to ECR
       shell: bash
       run: |
-        docker push ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:${{ inputs.BRANCH_NAME }}
+        docker push ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:$IMAGE_TAG
