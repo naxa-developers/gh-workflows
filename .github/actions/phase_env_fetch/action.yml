@@ -1,0 +1,65 @@
+name: "Fetch Phase Secrets"
+description: "Fetches secrets from Phase and generates a .env file on Ubuntu runners."
+
+inputs:
+  phase_service_token:
+    description: "Service token for authenticating with the Phase CLI."
+    required: true
+  phase_app_id:
+    description: "Application ID to fetch secrets from in Phase."
+    required: true
+  phase_env:
+    description: "Environment name to fetch secrets for (e.g., develop, staging, master)."
+    required: true
+  phase_host:
+    description: "Custom Phase host URL (optional, for self-hosted instances)."
+    required: false
+  output_file:
+    description: "Path where the .env file will be written."
+    required: false
+    default: ".env"
+  secrets_to_fetch:
+    description: "Space-separated list of specific secrets to fetch (optional; fetches all if unset)."
+    required: false
+
+outputs:
+  env_file:
+    description: "Path to the generated .env file."
+    value: ${{ steps.fetch-secrets.outputs.env_file }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Phase CLI
+      shell: bash
+      run: |
+        if phase --version >/dev/null 2>&1; then
+          echo "Phase CLI already installed, skipping installation."
+        else
+          install_dir="$HOME/.local/bin"
+          mkdir -p "$install_dir"
+          curl -fsSL "https://github.com/phasehq/cli/releases/download/v1.19.0/phase_cli_linux_amd64_1.19.0.deb" -o "/tmp/phase.deb" || exit 1
+          ar x "/tmp/phase.deb" data.tar.gz || exit 1
+          mkdir -p /tmp/phase_extract
+          tar -xzf data.tar.gz -C /tmp/phase_extract ./usr/bin/phase ./usr/bin/_internal || exit 1
+          mv /tmp/phase_extract/usr/bin/phase "$install_dir/phase" || exit 1
+          mv /tmp/phase_extract/usr/bin/_internal "$install_dir/_internal" || exit 1
+          rm -rf /tmp/phase_extract /tmp/phase.deb data.tar.gz
+          chmod +x "$install_dir/phase" || exit 1
+          echo "$install_dir" >> "$GITHUB_PATH"
+          phase --version || exit 1
+        fi
+
+    - name: Fetch Secrets
+      id: fetch-secrets
+      shell: bash
+      env:
+        PHASE_HOST: ${{ inputs.phase_host }}
+        PHASE_SERVICE_TOKEN: ${{ inputs.phase_service_token }}
+      run: |
+        phase secrets export \
+          --app-id "${{ inputs.phase_app_id }}" \
+          --env "${{ inputs.phase_env }}" \
+          --format=dotenv \
+          ${{ inputs.secrets_to_fetch }} > "${{ inputs.output_file }}" || exit 1
+        echo "env_file=${{ inputs.output_file }}" >> "$GITHUB_OUTPUT"
