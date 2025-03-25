@@ -1,0 +1,48 @@
+name: 'Build Artifact Downloader'
+description: 'Downloads and extracts build artifacts from S3'
+inputs:
+  aws-access-key-id:
+    required: true
+    description: 'AWS access key ID'
+  aws-secret-access-key:
+    required: true
+    description: 'AWS secret access key'
+  aws-region:
+    required: true
+    default: 'ap-south-1'
+    description: 'AWS region'
+  project-name:
+    required: true
+    description: 'Name of the project used during upload'
+  s3-base-path:
+    required: true
+    description: 'Base S3 path used during upload'
+  target-directory:
+    required: false
+    default: '.'
+    description: 'Directory to extract the artifact'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Download and extract artifact
+      shell: bash
+      run: |
+        ZIP_NAME="${{ inputs.project-name }}-${{ github.run_id }}-${{ github.run_number }}.zip"
+        S3_SOURCE_PATH="${{ inputs.s3-base-path }}/${{ inputs.project-name }}-${{ github.run_id }}/${ZIP_NAME}"
+        TARGET_DIR="${{ inputs.target-directory }}"
+        
+        echo "Downloading artifact from: ${S3_SOURCE_PATH}"
+        aws s3 cp "${S3_SOURCE_PATH}" "${ZIP_NAME}"
+        
+        echo "Extracting to: ${TARGET_DIR}"
+        mkdir -p "${TARGET_DIR}"
+        unzip -o "${ZIP_NAME}" -d "${TARGET_DIR}"
+        rm "${ZIP_NAME}"
