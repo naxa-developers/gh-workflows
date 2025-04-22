@@ -17,7 +17,7 @@ Zips and uploads the build artifact to S3.
 
 ```yaml
 - name: Upload Build Artifacts
-        uses: naxa-developers/gh-workflows/.github/actions/build-artifact-uploader@artifact_uploader/v1.0.0
+        uses: naxa-developers/gh-workflows/.github/actions/build-artifact-uploader@artifact_uploader/v1.0.1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

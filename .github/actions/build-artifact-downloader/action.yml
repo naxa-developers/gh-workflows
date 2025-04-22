@@ -43,6 +43,10 @@ runs:
         aws s3 cp "${S3_SOURCE_PATH}" "${ZIP_NAME}"
         
         echo "Extracting to: ${TARGET_DIR}"
+        if [ -d "${TARGET_DIR}" ]; then
+          echo "Removing existing directory: ${TARGET_DIR}"
+          rm -rf "${TARGET_DIR}"
+        fi
         mkdir -p "${TARGET_DIR}"
         unzip -o "${ZIP_NAME}" -d "${TARGET_DIR}"
         rm "${ZIP_NAME}"
