@@ -51,8 +51,13 @@ runs:
     - name: Copy Dependency Files
       shell: bash
       run: |
-        cp ${{ inputs.APT_MODULES_FILE }} apt_requirements.txt
-        cp ${{ inputs.PIP_MODULES_FILE }} requirements.txt
+        if [ -n "${{ inputs.APT_MODULES_FILE }}" ]; then
+          cp "${{ inputs.APT_MODULES_FILE }}" apt_requirements.txt
+        fi
+    
+        if [ -n "${{ inputs.PIP_MODULES_FILE }}" ]; then
+          cp "${{ inputs.PIP_MODULES_FILE }}" requirements.txt
+        fi
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
