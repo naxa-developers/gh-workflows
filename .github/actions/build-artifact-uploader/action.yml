@@ -56,5 +56,11 @@ runs:
         echo "✅ Upload complete: $S3_BUILD_PATH"
 
         rm "$ZIP_PATH"
-        rm -r "$SOURCE_DIRECTORY"
-        echo "✅ Clean complete: $ZIP_NAME & $SOURCE_DIRECTORY" 
+
+        # delete source directory if it is not '.'
+        if [ "$SOURCE_DIRECTORY" != "." ]; then
+          rm -r "$SOURCE_DIRECTORY"
+          echo "✅Clean complete: $ZIP_NAME & $SOURCE_DIRECTORY"
+        else
+          echo "⚠️ Skipping deletion of SOURCE_DIRECTORY because it's '.'"
+        fi
