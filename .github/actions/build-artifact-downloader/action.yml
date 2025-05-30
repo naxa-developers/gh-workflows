@@ -19,7 +19,7 @@ inputs:
     description: 'Base S3 path used during upload'
   target-directory:
     required: false
-    default: '.'
+    default: './dist'
     description: 'Directory to extract the artifact'
 
 runs:
