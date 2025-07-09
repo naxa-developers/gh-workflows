@@ -40,6 +40,9 @@ inputs:
     required: false
     default: 'https://phase.naxa.com.np'
     description: "Only required for self-hosted one"
+  PHASE_ENV:
+    required: true
+    description: "Environment name to fetch secrets for (e.g., develop, staging, master)."
 
 runs:
   using: 'composite'
@@ -68,11 +71,11 @@ runs:
       uses: aws-actions/amazon-ecr-login@v2
     
     - name: Generate env from Phase
-      uses: naxa-developers/gh-workflows/.github/actions/phase_env_fetch@phase_env_fetch/v1.0.0
+      uses: naxa-developers/gh-workflows/.github/actions/phase_env_fetch@master
       with:
         phase_service_token: ${{ inputs.PHASE_SERVICE_TOKEN }}
         phase_app_id: ${{ inputs.PHASE_APP_ID }}
-        phase_env: ${{ inputs.BRANCH_NAME }}
+        phase_env: ${{ inputs.PHASE_ENV }}
         phase_host: ${{ inputs.PHASE_HOST }}
 
     - name: Copy Docker Compose File
