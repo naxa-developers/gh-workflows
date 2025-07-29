@@ -85,7 +85,7 @@ runs:
     - name: Build Docker Image
       shell: bash
       run: |
-        export RAW_GH_KEY=$(echo -n "${{ inputs.KPI_CUSTOM_GH_SSH_KEY }}" | sed ':a;N;$!ba;s/\n/\\n/g')
+        export RAW_GH_KEY=$(echo -n "${{ inputs.GH_RAW_SSH_KEY }}" | sed ':a;N;$!ba;s/\n/\\n/g')
         docker build -f ${{ inputs.DOCKERFILE_PATH }} \
           --build-arg "GIT_KEY=${RAW_GH_KEY}" \
           -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:$IMAGE_TAG \
