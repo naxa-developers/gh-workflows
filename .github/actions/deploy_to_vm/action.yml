@@ -73,12 +73,6 @@ runs:
         echo "${{ inputs.SSH_PRIVATE_KEY }}" > ~/.ssh/ci_key.pem
         chmod 600 ~/.ssh/ci_key.pem
 
-        # Add known hosts
-        if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
-          ssh-keyscan -p ${{ inputs.JUMP_HOST_PORT }} -H ${{ inputs.JUMP_HOST_IP }} >> ~/.ssh/known_hosts
-        fi
-        ssh-keyscan -H ${{ inputs.DEPLOYMENT_SERVER_IP }} >> ~/.ssh/known_hosts
-
         # Create SSH config
         if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
           cat > ~/.ssh/config <<EOF
@@ -88,6 +82,7 @@ runs:
           IdentityFile ~/.ssh/ci_key.pem
           Port ${{ inputs.JUMP_HOST_PORT }}
           StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
 
         Host target-server
           HostName ${{ inputs.DEPLOYMENT_SERVER_IP }}
@@ -96,6 +91,7 @@ runs:
           ProxyJump jump-host
           Port 22
           StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
         EOF
           chmod 600 ~/.ssh/config
         fi
