@@ -50,9 +50,14 @@ inputs:
   JUMP_HOST_IP:
     required: false
     description: "IP of jump host for proxmox"
-  JUMP_USER:
+  JUMP_HOST_USER:
     required: false
+    default: 'ubuntu'
     description: "username for jump_host"
+  JUMP_HOST_PORT:
+    required: false
+    default: '2345'
+    description: "Port for jump host"
 
 runs:
   using: 'composite'
@@ -64,25 +69,35 @@ runs:
       shell: bash
       run: |
         mkdir -p ~/.ssh
-        touch ~/.ssh/id_rsa
-        chmod 666 ~/.ssh/id_rsa
-        echo "${{ inputs.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 400 ~/.ssh/id_rsa
-        ssh-keyscan ${{ inputs.DEPLOYMENT_SERVER_IP }} >> ~/.ssh/known_hosts
+        chmod 700 ~/.ssh
+        echo "${{ inputs.SSH_PRIVATE_KEY }}" > ~/.ssh/ci_key.pem
+        chmod 600 ~/.ssh/ci_key.pem
 
+        # Add known hosts
         if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
-          ssh-keyscan -H ${{ inputs.JUMP_HOST_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p ${{ inputs.JUMP_HOST_PORT }} -H ${{ inputs.JUMP_HOST_IP }} >> ~/.ssh/known_hosts
         fi
-          ssh-keyscan -H ${{ inputs.DEPLOYMENT_SERVER_IP }} >> ~/.ssh/known_hosts
-        if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
-          cat >> ~/.ssh/config <<EOF
+        ssh-keyscan -H ${{ inputs.DEPLOYMENT_SERVER_IP }} >> ~/.ssh/known_hosts
 
-           Host target-server
-            HostName ${{ inputs.DEPLOYMENT_SERVER_IP }}
-            User ${{ inputs.DEPLOYMENT_USER }}
-            IdentityFile ~/.ssh/id_rsa
-            ProxyJump ${{ inputs.JUMP_USER }}@${{ inputs.JUMP_HOST_IP }}
-          EOF
+        # Create SSH config
+        if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
+          cat > ~/.ssh/config <<EOF
+        Host jump-host
+          HostName ${{ inputs.JUMP_HOST_IP }}
+          User ${{ inputs.JUMP_HOST_USER }}
+          IdentityFile ~/.ssh/ci_key.pem
+          Port ${{ inputs.JUMP_HOST_PORT }}
+          StrictHostKeyChecking no
+
+        Host target-server
+          HostName ${{ inputs.DEPLOYMENT_SERVER_IP }}
+          User ${{ inputs.DEPLOYMENT_SERVER_USERNAME }}
+          IdentityFile ~/.ssh/ci_key.pem
+          ProxyJump jump-host
+          Port 22
+          StrictHostKeyChecking no
+        EOF
+          chmod 600 ~/.ssh/config
         fi
 
     - name: Configure AWS Credentials
@@ -114,4 +129,4 @@ runs:
         docker compose --file docker-compose.yml pull
         docker compose --file docker-compose.yml up --detach
       env:
-        DOCKER_HOST: ssh://${{ inputs.DEPLOYMENT_SERVER_USERNAME }}@${{ inputs.DEPLOYMENT_SERVER_IP }}
+        DOCKER_HOST: ${{ inputs.SERVER_TYPE == 'proxmox' && 'ssh://target-server' || format('ssh://{0}@{1}', inputs.DEPLOYMENT_SERVER_USERNAME, inputs.DEPLOYMENT_SERVER_IP) }}
