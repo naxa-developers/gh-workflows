@@ -77,13 +77,13 @@ runs:
         if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
           cat >> ~/.ssh/config <<EOF
 
-     Host target-server
-        HostName ${{ inputs.DEPLOYMENT_SERVER_IP }}
-        User ${{ inputs.DEPLOYMENT_USER }}
-        IdentityFile ~/.ssh/id_rsa
-        ProxyJump ${{ inputs.JUMP_USER }}@${{ inputs.JUMP_HOST_IP }}
-     EOF
-       fi
+           Host target-server
+            HostName ${{ inputs.DEPLOYMENT_SERVER_IP }}
+            User ${{ inputs.DEPLOYMENT_USER }}
+            IdentityFile ~/.ssh/id_rsa
+            ProxyJump ${{ inputs.JUMP_USER }}@${{ inputs.JUMP_HOST_IP }}
+          EOF
+        fi
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
