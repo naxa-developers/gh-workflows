@@ -43,6 +43,16 @@ inputs:
   PHASE_ENV:
     required: true
     description: "Environment name to fetch secrets for (e.g., develop, staging, master)."
+  SERVER_TYPE:
+    required: true
+    default: aws
+    description: "To choose where to deploy proxmox or aws"
+  JUMP_HOST_IP:
+    required: false
+    description: "IP of jump host for proxmox"
+  JUMP_USER:
+    required: false
+    description: "username for jump_host"
 
 runs:
   using: 'composite'
@@ -59,6 +69,21 @@ runs:
         echo "${{ inputs.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 400 ~/.ssh/id_rsa
         ssh-keyscan ${{ inputs.DEPLOYMENT_SERVER_IP }} >> ~/.ssh/known_hosts
+
+        if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
+          ssh-keyscan -H ${{ inputs.JUMP_HOST_IP }} >> ~/.ssh/known_hosts
+        fi
+          ssh-keyscan -H ${{ inputs.DEPLOYMENT_SERVER_IP }} >> ~/.ssh/known_hosts
+        if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
+          cat >> ~/.ssh/config <<EOF
+
+     Host target-server
+        HostName ${{ inputs.DEPLOYMENT_SERVER_IP }}
+        User ${{ inputs.DEPLOYMENT_USER }}
+        IdentityFile ~/.ssh/id_rsa
+        ProxyJump ${{ inputs.JUMP_USER }}@${{ inputs.JUMP_HOST_IP }}
+     EOF
+       fi
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
