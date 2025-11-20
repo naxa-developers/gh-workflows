@@ -25,7 +25,7 @@ inputs:
     description: "The IP address of the deployment server."
   DEPLOYMENT_SERVER_USERNAME:
     required: true
-    default: 'ubuntu'
+    default: "ubuntu"
     description: "The SSH username for the deployment server."
   PHASE_SERVICE_TOKEN:
     required: true
@@ -38,14 +38,17 @@ inputs:
     description: "Branch executing workflow"
   PHASE_HOST:
     required: false
-    default: 'https://phase.naxa.com.np'
+    default: "https://phase.naxa.com.np"
     description: "Only required for self-hosted one"
+  CONFIG_COPY_DESTINATION_PATH:
+    required: false
+    description: "Path to copy config files on the VM"
   PHASE_ENV:
     required: true
     description: "Environment name to fetch secrets for (e.g., develop, staging, master)."
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
@@ -69,7 +72,7 @@ runs:
 
     - name: Login to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v2
-    
+
     - name: Generate env from Phase
       uses: naxa-developers/gh-workflows/.github/actions/phase_env_fetch@master
       with:
@@ -82,6 +85,18 @@ runs:
       shell: bash
       run: |
         cp ./docker/server/docker-compose.${{ inputs.BRANCH_NAME }}.yml docker-compose.yml
+
+    - name: Copy config files to VM
+      uses: appleboy/scp-action@v1.0.0
+      if: ${{ inputs.CONFIG_COPY_DESTINATION_PATH != '' }}
+      with:
+        host: ${{ inputs.DEPLOYMENT_SERVER_IP }}
+        username: ${{ inputs.DEPLOYMENT_SERVER_USERNAME }}
+        key: ${{ inputs.SSH_PRIVATE_KEY }}
+        port: 22
+        overwrite: true
+        source: "docker-compose.yml,nginx,.env"
+        target: ${{ inputs.CONFIG_COPY_DESTINATION_PATH }}
 
     - name: Pull and Deploy Docker Image to Server
       shell: bash
