@@ -40,9 +40,6 @@ inputs:
     required: false
     default: "https://phase.naxa.com.np"
     description: "Only required for self-hosted one"
-  CONFIG_COPY_DESTINATION_PATH:
-    required: false
-    description: "Path to copy config files on the VM"
   PHASE_ENV:
     required: true
     description: "Environment name to fetch secrets for (e.g., develop, staging, master)."
@@ -81,22 +78,23 @@ runs:
         phase_env: ${{ inputs.PHASE_ENV }}
         phase_host: ${{ inputs.PHASE_HOST }}
 
-    - name: Copy Docker Compose File
+    - name: Copy Docker Compose File and export PROJECT_DIR
+      id: get_proj_dir
       shell: bash
       run: |
         cp ./docker/server/docker-compose.${{ inputs.BRANCH_NAME }}.yml docker-compose.yml
+        echo $(cat .env | grep PROJECT_DIR) >> $GITHUB_OUTPUT
 
     - name: Copy config files to VM
       uses: appleboy/scp-action@v1.0.0
-      if: ${{ inputs.CONFIG_COPY_DESTINATION_PATH != '' }}
       with:
         host: ${{ inputs.DEPLOYMENT_SERVER_IP }}
         username: ${{ inputs.DEPLOYMENT_SERVER_USERNAME }}
         key: ${{ inputs.SSH_PRIVATE_KEY }}
         port: 22
         overwrite: true
-        source: "docker-compose.yml,nginx,.env"
-        target: ${{ inputs.CONFIG_COPY_DESTINATION_PATH }}
+        source: "docker-compose.yml,nginx/,.env"
+        target: ${{ steps.get_proj_dir.outputs.PROJECT_DIR }}
 
     - name: Pull and Deploy Docker Image to Server
       shell: bash
