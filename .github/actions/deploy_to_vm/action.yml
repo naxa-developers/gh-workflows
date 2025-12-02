@@ -123,4 +123,4 @@ runs:
         docker compose --file docker-compose.yml pull
         docker compose --file docker-compose.yml up --detach
       env:
-        DOCKER_HOST: ${{ inputs.SERVER_TYPE == 'aws-nat' && 'ssh://target-server' || format('ssh://{0}@{1}', inputs.DEPLOYMENT_SERVER_USERNAME, inputs.DEPLOYMENT_SERVER_IP) }}
+        DOCKER_HOST: ssh://target-server
