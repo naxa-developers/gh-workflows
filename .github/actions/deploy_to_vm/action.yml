@@ -92,7 +92,14 @@ runs:
           StrictHostKeyChecking no
         EOF
           chmod 600 ~/.ssh/config
-
+          
+    - name: Debug SSH Config
+      shell: bash
+      run: |
+        echo "===== SSH CONFIG CONTENTS ====="
+        cat ~/.ssh/config || true
+        echo "==============================="
+        
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
