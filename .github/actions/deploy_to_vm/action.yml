@@ -49,6 +49,7 @@ inputs:
     description: "To choose where to deploy proxmox or aws-nat"
   JUMP_HOST_IP_AWS:
     required: false
+    default: 13.202.236.152
     description: "IP of jump host for aws-nat"
   JUMP_HOST_USER:
     required: false
