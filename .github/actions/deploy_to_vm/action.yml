@@ -1,5 +1,6 @@
 name: Deploy Docker Image
 description: Pulls and Deploys a Docker image to a server using SSH and Docker Compose.
+
 inputs:
   SSH_PRIVATE_KEY:
     required: true
@@ -42,49 +43,84 @@ inputs:
   PHASE_ENV:
     required: true
     description: "Environment name to fetch secrets for (e.g., develop, staging, master)."
+  SERVER_TYPE:
+    required: true
+    default: aws-nat
+    description: "To choose where to deploy proxmox or aws-nat"
+  JUMP_HOST_IP:
+    required: false
+    description: "IP of jump host for proxmox"
+  JUMP_HOST_USER:
+    required: false
+    default: 'ubuntu'
+    description: "username for jump_host"
+  # JUMP_HOST_PORT:
+  #   required: false
+  #   default: '2345'
+  #   description: "Port for jump host"
+
 runs:
   using: 'composite'
   steps:
-  - name: Checkout Repository
-    uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-  - name: Configure SSH Key
-    uses: webfactory/ssh-agent@v0.9.0
-    with:
-      ssh-private-key: ${{ inputs.SSH_PRIVATE_KEY }}
+    - name: Configure SSH Key
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        echo "${{ inputs.SSH_PRIVATE_KEY }}" > ~/.ssh/ci_key.pem
+        chmod 600 ~/.ssh/ci_key.pem
+        
+        # Create SSH config
+        if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
+          cat > ~/.ssh/config <<EOF
+        Host jump-host
+          HostName ${{ inputs.JUMP_HOST_IP }}
+          User ${{ inputs.JUMP_HOST_USER }}
+          IdentityFile ~/.ssh/ci_key.pem
+          Port 22
+          StrictHostKeyChecking no
 
-  - name: Add SSH Known Hosts
-    shell: bash
-    run: |
-      ssh-keyscan -H ${{ inputs.DEPLOYMENT_SERVER_IP }} >> ~/.ssh/known_hosts
+        Host target-server
+          HostName ${{ inputs.DEPLOYMENT_SERVER_IP }}
+          User ${{ inputs.DEPLOYMENT_SERVER_USERNAME }}
+          IdentityFile ~/.ssh/ci_key.pem
+          ProxyJump jump-host
+          Port 22
+          StrictHostKeyChecking no
+        EOF
+          chmod 600 ~/.ssh/config
+        fi
 
-  - name: Configure AWS Credentials
-    uses: aws-actions/configure-aws-credentials@v4
-    with:
-      aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY_ID }}
-      aws-secret-access-key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
-      aws-region: ${{ inputs.AWS_REGION }}
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ inputs.AWS_REGION }}
 
-  - name: Login to Amazon ECR
-    uses: aws-actions/amazon-ecr-login@v2
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Generate env from Phase
+      uses: naxa-developers/gh-workflows/.github/actions/phase_env_fetch@test
+      with:
+        phase_service_token: ${{ inputs.PHASE_SERVICE_TOKEN }}
+        phase_app_id: ${{ inputs.PHASE_APP_ID }}
+        phase_env: ${{ inputs.PHASE_ENV }}
+        phase_host: ${{ inputs.PHASE_HOST }}
 
-  - name: Generate env from Phase
-    uses: naxa-developers/gh-workflows/.github/actions/phase_env_fetch@master
-    with:
-      phase_service_token: ${{ inputs.PHASE_SERVICE_TOKEN }}
-      phase_app_id: ${{ inputs.PHASE_APP_ID }}
-      phase_env: ${{ inputs.PHASE_ENV }}
-      phase_host: ${{ inputs.PHASE_HOST }}
+    - name: Copy Docker Compose File
+      shell: bash
+      run: |
+        cp ./docker/server/docker-compose.${{ inputs.BRANCH_NAME }}.yml docker-compose.yml
 
-  - name: Copy Docker Compose File
-    shell: bash
-    run: |
-      cp ./docker/server/docker-compose.${{ inputs.BRANCH_NAME }}.yml docker-compose.yml
-
-  - name: Pull and Deploy Docker Image to Server
-    shell: bash
-    run: |
-      docker compose --file docker-compose.yml pull
-      docker compose --file docker-compose.yml up --detach
-    env:
-      DOCKER_HOST: ssh://${{ inputs.DEPLOYMENT_SERVER_USERNAME }}@${{ inputs.DEPLOYMENT_SERVER_IP }}
+    - name: Pull and Deploy Docker Image to Server
+      shell: bash
+      run: |
+        docker compose --file docker-compose.yml pull
+        docker compose --file docker-compose.yml up --detach
+      env:
+        DOCKER_HOST: ${{ inputs.SERVER_TYPE == 'aws-nat' && 'ssh://target-server' || format('ssh://{0}@{1}', inputs.DEPLOYMENT_SERVER_USERNAME, inputs.DEPLOYMENT_SERVER_IP) }}
