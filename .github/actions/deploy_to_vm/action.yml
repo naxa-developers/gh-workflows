@@ -123,4 +123,4 @@ runs:
         docker compose --file docker-compose.yml pull
         docker compose --file docker-compose.yml up --detach
       env:
-        DOCKER_HOST: ssh://target-server
+        DOCKER_HOST: ssh://target-server-aws
