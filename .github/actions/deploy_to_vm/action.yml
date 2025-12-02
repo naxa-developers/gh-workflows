@@ -75,6 +75,7 @@ runs:
         chmod 600 ~/.ssh/ci_key.pem
         
         # Create SSH config
+        if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
           cat > ~/.ssh/config <<EOF
         Host jump-host-aws
           HostName ${{ inputs.JUMP_HOST_IP_AWS }}
@@ -92,14 +93,8 @@ runs:
           StrictHostKeyChecking no
         EOF
           chmod 600 ~/.ssh/config
+        fi
           
-    - name: Debug SSH Config
-      shell: bash
-      run: |
-        echo "===== SSH CONFIG CONTENTS ====="
-        cat ~/.ssh/config || true
-        echo "==============================="
-        
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
