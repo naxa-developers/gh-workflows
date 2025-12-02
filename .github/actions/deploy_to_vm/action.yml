@@ -76,18 +76,18 @@ runs:
         # Create SSH config
         if [[ -n "${{ inputs.JUMP_HOST_IP_AWS }}" ]]; then
           cat > ~/.ssh/config <<EOF
-        Host jump-host
-          HostName ${{ inputs.JUMP_HOST_IP }}
+        Host jump-host-aws
+          HostName ${{ inputs.JUMP_HOST_IP_AWS }}
           User ${{ inputs.JUMP_HOST_USER }}
           IdentityFile ~/.ssh/ci_key.pem
           Port 22
           StrictHostKeyChecking no
 
-        Host target-server
+        Host target-server-aws
           HostName ${{ inputs.DEPLOYMENT_SERVER_IP }}
           User ${{ inputs.DEPLOYMENT_SERVER_USERNAME }}
           IdentityFile ~/.ssh/ci_key.pem
-          ProxyJump jump-host
+          ProxyJump jump-host-aws
           Port 22
           StrictHostKeyChecking no
         EOF
