@@ -47,9 +47,9 @@ inputs:
     required: true
     default: aws-nat
     description: "To choose where to deploy proxmox or aws-nat"
-  JUMP_HOST_IP:
+  JUMP_HOST_IP_AWS:
     required: false
-    description: "IP of jump host for proxmox"
+    description: "IP of jump host for aws-nat"
   JUMP_HOST_USER:
     required: false
     default: 'ubuntu'
@@ -74,7 +74,7 @@ runs:
         chmod 600 ~/.ssh/ci_key.pem
         
         # Create SSH config
-        if [[ -n "${{ inputs.JUMP_HOST_IP }}" ]]; then
+        if [[ -n "${{ inputs.JUMP_HOST_IP_AWS }}" ]]; then
           cat > ~/.ssh/config <<EOF
         Host jump-host
           HostName ${{ inputs.JUMP_HOST_IP }}
