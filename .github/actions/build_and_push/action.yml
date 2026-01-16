@@ -58,11 +58,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-  - name: Checkout Code
-    uses: actions/checkout@v6
-    with:
-      ref: ${{ inputs.BRANCH_NAME }}
-
   - name: Copy Dependency Files - Skip if not present
     shell: bash
     run: |
