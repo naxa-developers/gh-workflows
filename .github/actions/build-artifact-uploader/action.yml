@@ -1,12 +1,9 @@
 name: 'Build Artifact Uploader'
 description: 'Zips and uploads the build artifact to S3'
 inputs:
-  aws-access-key-id:
+  aws-role-arn:
     required: true
-    description: 'AWS access key ID'
-  aws-secret-access-key:
-    required: true
-    description: 'AWS secret access key'
+    description: "IAM Role ARN to assume via GitHub OIDC"
   aws-region:
     required: true
     default: 'ap-south-1'
@@ -25,42 +22,41 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ inputs.aws-access-key-id }}
-        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
-        aws-region: ${{ inputs.aws-region }}
+  - name: Configure AWS Credentials
+    uses: aws-actions/configure-aws-credentials@v5
+    with:
+      role-to-assume: ${{ inputs.aws-role-arn }}
+      aws-region: ${{ inputs.aws-region }}
 
-    - name: Zip contents and upload to S3
-      shell: bash
-      run: |
-        set -e
+  - name: Zip contents and upload to S3
+    shell: bash
+    run: |
+      set -e
 
-        PROJECT_NAME="${{ inputs.project-name }}"
-        SOURCE_DIRECTORY="${{ inputs.source-directory }}"
-        S3_BASE_PATH="${{ inputs.s3-base-path }}"
+      PROJECT_NAME="${{ inputs.project-name }}"
+      SOURCE_DIRECTORY="${{ inputs.source-directory }}"
+      S3_BASE_PATH="${{ inputs.s3-base-path }}"
 
-        ZIP_NAME="${{ inputs.project-name }}-${{ github.run_id }}-${{ github.run_number }}.zip"
-        ABS_SOURCE_DIR="$(realpath "$SOURCE_DIRECTORY")"
-        PARENT_DIR="$(dirname "$ABS_SOURCE_DIR")"
-        ZIP_PATH="${PARENT_DIR}/${ZIP_NAME}"
-        S3_BUILD_PATH="${{ inputs.s3-base-path }}/${{ inputs.project-name }}-${{ github.run_id }}/${ZIP_NAME}"
+      ZIP_NAME="${{ inputs.project-name }}-${{ github.run_id }}-${{ github.run_number }}.zip"
+      ABS_SOURCE_DIR="$(realpath "$SOURCE_DIRECTORY")"
+      PARENT_DIR="$(dirname "$ABS_SOURCE_DIR")"
+      ZIP_PATH="${PARENT_DIR}/${ZIP_NAME}"
+      S3_BUILD_PATH="${{ inputs.s3-base-path }}/${{ inputs.project-name }}-${{ github.run_id }}/${ZIP_NAME}"
 
-        cd "$ABS_SOURCE_DIR"
-        zip -r "$ZIP_PATH" . > /dev/null
-        cd - > /dev/null
+      cd "$ABS_SOURCE_DIR"
+      zip -r "$ZIP_PATH" . > /dev/null
+      cd - > /dev/null
 
-        aws s3 cp "$ZIP_PATH" "$S3_BUILD_PATH"
+      aws s3 cp "$ZIP_PATH" "$S3_BUILD_PATH"
 
-        echo "✅ Upload complete: $S3_BUILD_PATH"
+      echo "✅ Upload complete: $S3_BUILD_PATH"
 
-        rm "$ZIP_PATH"
+      rm "$ZIP_PATH"
 
-        # delete source directory if it is not '.'
-        if [ "$SOURCE_DIRECTORY" != "." ]; then
-          rm -r "$SOURCE_DIRECTORY"
-          echo "✅Clean complete: $ZIP_NAME & $SOURCE_DIRECTORY"
-        else
-          echo "⚠️ Skipping deletion of SOURCE_DIRECTORY because it's '.'"
-        fi
+      # delete source directory if it is not '.'
+      if [ "$SOURCE_DIRECTORY" != "." ]; then
+        rm -r "$SOURCE_DIRECTORY"
+        echo "✅Clean complete: $ZIP_NAME & $SOURCE_DIRECTORY"
+      else
+        echo "⚠️ Skipping deletion of SOURCE_DIRECTORY because it's '.'"
+      fi
