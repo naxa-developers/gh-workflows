@@ -99,5 +99,6 @@ runs:
     run: |
       docker compose --file docker-compose.yml pull
       docker compose --file docker-compose.yml up --detach
+      docker compose --file docker-compose.yml up --detach --force-recreate --no-deps nginx
     env:
       DOCKER_HOST: ssh://${{ inputs.DEPLOYMENT_SERVER_USERNAME }}@${{ inputs.DEPLOYMENT_SERVER_IP }}
