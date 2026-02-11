@@ -86,6 +86,11 @@ runs:
     run: |
       docker compose --file docker-compose.yml pull
       docker compose --file docker-compose.yml up --detach
+      if docker compose --file docker-compose.yml config --services | grep -qx 'nginx'; then
+      echo "nginx service found — force recreating nginx..."
       docker compose --file docker-compose.yml up --detach --force-recreate --no-deps nginx
+      else
+        echo "nginx service not found — skipping nginx recreate."
+      fi
     env:
       DOCKER_HOST: ssh://${{ inputs.DEPLOYMENT_SERVER_USERNAME }}@${{ inputs.DEPLOYMENT_SERVER_IP }}
