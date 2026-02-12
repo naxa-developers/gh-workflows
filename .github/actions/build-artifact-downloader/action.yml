@@ -1,12 +1,9 @@
 name: 'Build Artifact Downloader'
 description: 'Downloads and extracts build artifacts from S3'
 inputs:
-  aws-access-key-id:
+  aws-role-arn:
     required: true
-    description: 'AWS access key ID'
-  aws-secret-access-key:
-    required: true
-    description: 'AWS secret access key'
+    description: "IAM Role ARN to assume via GitHub OIDC"
   aws-region:
     required: true
     default: 'ap-south-1'
@@ -25,24 +22,23 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ inputs.aws-access-key-id }}
-        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
-        aws-region: ${{ inputs.aws-region }}
+  - name: Configure AWS Credentials
+    uses: aws-actions/configure-aws-credentials@v5
+    with:
+      role-to-assume: ${{ inputs.aws-role-arn }}
+      aws-region: ${{ inputs.aws-region }}
 
-    - name: Download and extract artifact
-      shell: bash
-      run: |
-        ZIP_NAME="${{ inputs.project-name }}-${{ github.run_id }}-${{ github.run_number }}.zip"
-        S3_SOURCE_PATH="${{ inputs.s3-base-path }}/${{ inputs.project-name }}-${{ github.run_id }}/${ZIP_NAME}"
-        TARGET_DIR="${{ inputs.target-directory }}"
-        
-        echo "Downloading artifact from: ${S3_SOURCE_PATH}"
-        aws s3 cp "${S3_SOURCE_PATH}" "${ZIP_NAME}"
-        
-        echo "Extracting to: ${TARGET_DIR}"
-        mkdir -p "${TARGET_DIR}"
-        unzip -o "${ZIP_NAME}" -d "${TARGET_DIR}"
-        rm "${ZIP_NAME}"
+  - name: Download and extract artifact
+    shell: bash
+    run: |
+      ZIP_NAME="${{ inputs.project-name }}-${{ github.run_id }}-${{ github.run_number }}.zip"
+      S3_SOURCE_PATH="${{ inputs.s3-base-path }}/${{ inputs.project-name }}-${{ github.run_id }}/${ZIP_NAME}"
+      TARGET_DIR="${{ inputs.target-directory }}"
+
+      echo "Downloading artifact from: ${S3_SOURCE_PATH}"
+      aws s3 cp "${S3_SOURCE_PATH}" "${ZIP_NAME}"
+
+      echo "Extracting to: ${TARGET_DIR}"
+      mkdir -p "${TARGET_DIR}"
+      unzip -o "${ZIP_NAME}" -d "${TARGET_DIR}"
+      rm "${ZIP_NAME}"
