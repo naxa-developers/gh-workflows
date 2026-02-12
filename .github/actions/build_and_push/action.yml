@@ -43,50 +43,62 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ inputs.BRANCH_NAME }}
+  - name: Checkout Code
+    uses: actions/checkout@v6
+    with:
+      ref: ${{ inputs.BRANCH_NAME }}
 
-    - name: Copy Dependency Files
-      shell: bash
-      run: |
-        if [ -n "${{ inputs.APT_MODULES_FILE }}" ]; then
-          cp "${{ inputs.APT_MODULES_FILE }}" apt_requirements.txt
-        fi
-    
-        if [ -n "${{ inputs.PIP_MODULES_FILE }}" ]; then
-          cp "${{ inputs.PIP_MODULES_FILE }}" requirements.txt
-        fi
+  - name: Copy Dependency Files - Skip if not present
+    shell: bash
+    run: |
+      set -euo pipefail
+      if [[ -n "${{ inputs.APT_MODULES_FILE }}" && -f "${{ inputs.APT_MODULES_FILE }}" ]]; then
+        cp "${{ inputs.APT_MODULES_FILE }}" apt_requirements.txt
+      else
+        echo "APT requirements not provided or file not found. Skipping."
+      fi
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ inputs.AWS_REGION }}
+      if [[ -n "${{ inputs.PIP_MODULES_FILE }}" && -f "${{ inputs.PIP_MODULES_FILE }}" ]]; then
+        cp "${{ inputs.PIP_MODULES_FILE }}" requirements.txt
+      else
+        echo "PIP requirements not provided or file not found. Skipping."
+      fi
 
-    - name: Login to Amazon ECR
-      uses: aws-actions/amazon-ecr-login@v2
-    
-    - name: Set IMAGE_TAG
-      shell: bash
-      run: |
-        IMAGE_TAG="${{ inputs.IMAGE_TAG }}"
-        if [[ -z "$IMAGE_TAG" ]]; then
-          IMAGE_TAG="${{ inputs.BRANCH_NAME }}"
-        fi
-        echo "Using IMAGE_TAG: $IMAGE_TAG"
-        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV 
-    
-    - name: Build Docker Image
-      shell: bash
-      run: |
-        docker build -f ${{ inputs.DOCKERFILE_PATH }} \
-          -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:$IMAGE_TAG \
-          ${{ inputs.BUILD_CONTEXT }}
-        
-    - name: Push Docker Image to ECR
-      shell: bash
-      run: |
-        docker push ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:$IMAGE_TAG
+  - name: Configure AWS Credentials
+    uses: aws-actions/configure-aws-credentials@v4
+    with:
+      aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
+      aws-region: ${{ inputs.AWS_REGION }}
+
+  - name: Login to Amazon ECR
+    uses: aws-actions/amazon-ecr-login@v2
+
+  - name: Set IMAGE_TAG
+    shell: bash
+    run: |
+      IMAGE_TAG="${{ inputs.IMAGE_TAG }}"
+      if [[ -z "$IMAGE_TAG" ]]; then
+        IMAGE_TAG="${{ inputs.BRANCH_NAME }}"
+      fi
+      echo "Using IMAGE_TAG: $IMAGE_TAG"
+      echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV 
+
+  - name: Build and push image
+    uses: docker/build-push-action@v6
+    with:
+      context: ${{ inputs.BUILD_CONTEXT }}
+      file: ${{ inputs.DOCKERFILE_PATH }}
+      platforms: linux/amd64
+      push: true
+      provenance: false
+      sbom: false
+      tags: |
+        ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+        ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:buildcache
+      build-args: |
+        BUILDKIT_INLINE_CACHE=1
+      cache-from: |
+        type=registry,ref=${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:buildcache
+      cache-to: |
+        type=registry,ref=${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:buildcache,mode=max
