@@ -40,6 +40,24 @@ inputs:
     required: false
     description: "Docker Image tag while pushing to ECR, default will be BRANCH NAME"
 
+  ENABLE_PHASE_ENV_FETCH:
+    required: false
+    default: "false"
+    description: "Set to 'true' to fetch env from Phase."
+  PHASE_SERVICE_TOKEN:
+    required: false
+    description: "Phase Token for Service Account"
+  PHASE_APP_ID:
+    required: false
+    description: "The Unique Identifier for the Projects in Phase"
+  PHASE_HOST:
+    required: false
+    default: 'https://phase.naxa.com.np'
+    description: "Only required for self-hosted one"
+  PHASE_ENV:
+    required: false
+    description: "Environment name to fetch secrets for (e.g., develop, staging, master)."
+
 runs:
   using: 'composite'
   steps:
@@ -73,6 +91,15 @@ runs:
 
   - name: Login to Amazon ECR
     uses: aws-actions/amazon-ecr-login@v2
+
+  - name: Generate env from Phase
+    if: ${{ inputs.ENABLE_PHASE_ENV_FETCH == 'true' }}
+    uses: naxa-developers/gh-workflows/.github/actions/phase_env_fetch@master
+    with:
+      phase_service_token: ${{ inputs.PHASE_SERVICE_TOKEN }}
+      phase_app_id: ${{ inputs.PHASE_APP_ID }}
+      phase_env: ${{ inputs.PHASE_ENV }}
+      phase_host: ${{ inputs.PHASE_HOST }}
 
   - name: Set up Docker Buildx
     uses: docker/setup-buildx-action@v3
