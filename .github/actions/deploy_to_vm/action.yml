@@ -33,7 +33,7 @@ inputs:
     required: true
     description: "The Unique Identifier for the Projects in Phase"
   BRANCH_NAME:
-    required: true
+    required: false
     description: "Branch executing workflow"
   PHASE_HOST:
     required: false
@@ -42,11 +42,14 @@ inputs:
   PHASE_ENV:
     required: true
     description: "Environment name to fetch secrets for (e.g., develop, staging, master)."
+  DEPLOYMNET_DOMAIN:
+    required: false
+    description: "Optional domain key to select docker-compose.<domain>.yml (overrides BRANCH_NAME). Example: app.dastaa.org"
 runs:
   using: "composite"
   steps:
   - name: Checkout Repository
-    uses: actions/checkout@v4
+    uses: actions/checkout@v6
 
   - name: Configure SSH Key
     uses: webfactory/ssh-agent@v0.9.0
@@ -76,12 +79,49 @@ runs:
       phase_env: ${{ inputs.PHASE_ENV }}
       phase_host: ${{ inputs.PHASE_HOST }}
 
-  - name: Copy Docker Compose File and export PROJECT_DIR
+  - name: Decide compose template (DOMAIN overrides BRANCH)
+    id: compose_picker
+    shell: bash
+    run: |
+      set -euo pipefail
+
+      DEPLOYMNET_DOMAIN="${{ inputs.DEPLOYMNET_DOMAIN || '' }}"
+      BRANCH="${{ inputs.BRANCH_NAME || '' }}"
+
+      if [[ -n "$DEPLOYMNET_DOMAIN" ]]; then
+        COMPOSE_SRC="./docker/server/docker-compose.${DEPLOYMNET_DOMAIN}.yml"
+        echo "Using: $COMPOSE_SRC"
+      elif [[ -n "$BRANCH" ]]; then
+        COMPOSE_SRC="./docker/server/docker-compose.${BRANCH}.yml"
+        echo "Using: $COMPOSE_SRC"
+      else
+        echo "ERROR: Please pass DEPLOYMNET_DOMAIN or BRANCH_NAME."
+        exit 1
+      fi
+
+      if [[ ! -f "$COMPOSE_SRC" ]]; then
+        echo "ERROR: Compose file not found: $COMPOSE_SRC"
+        echo "Available files in ./docker/server:"
+        ls -la ./docker/server || true
+        exit 1
+      fi
+
+      echo "compose_src=$COMPOSE_SRC" >> "$GITHUB_OUTPUT"
+
+  - name: Copy compose file and export PROJECT_DIR
     id: get_proj_dir
     shell: bash
     run: |
-      cp ./docker/server/docker-compose.${{ inputs.BRANCH_NAME }}.yml docker-compose.yml
-      echo $(cat .env | grep PROJECT_DIR) >> $GITHUB_OUTPUT
+      set -euo pipefail
+
+      cp "${{ steps.compose_picker.outputs.compose_src }}" docker-compose.yml
+
+      PROJECT_DIR_LINE=$(grep -E '^PROJECT_DIR=' .env | head -n1 || true)
+      if [[ -z "$PROJECT_DIR_LINE" ]]; then
+        echo "ERROR: PROJECT_DIR not found in .env"
+        exit 1
+      fi
+      echo "$PROJECT_DIR_LINE" >> "$GITHUB_OUTPUT"
 
   - name: Copy config files to VM
     uses: appleboy/scp-action@v1.0.0
