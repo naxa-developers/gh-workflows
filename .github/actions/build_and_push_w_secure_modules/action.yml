@@ -46,52 +46,52 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ inputs.BRANCH_NAME }}
+  - name: Checkout Code
+    uses: actions/checkout@v6
+    with:
+      ref: ${{ inputs.BRANCH_NAME }}
 
-    - name: Copy Dependency Files
-      shell: bash
-      run: |
-        if [ -n "${{ inputs.APT_MODULES_FILE }}" ]; then
-          cp "${{ inputs.APT_MODULES_FILE }}" apt_requirements.txt
-        fi
-    
-        if [ -n "${{ inputs.PIP_MODULES_FILE }}" ]; then
-          cp "${{ inputs.PIP_MODULES_FILE }}" requirements.txt
-        fi
+  - name: Copy Dependency Files
+    shell: bash
+    run: |
+      if [ -n "${{ inputs.APT_MODULES_FILE }}" ]; then
+        cp "${{ inputs.APT_MODULES_FILE }}" apt_requirements.txt
+      fi
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ inputs.AWS_REGION }}
+      if [ -n "${{ inputs.PIP_MODULES_FILE }}" ]; then
+        cp "${{ inputs.PIP_MODULES_FILE }}" requirements.txt
+      fi
 
-    - name: Login to Amazon ECR
-      uses: aws-actions/amazon-ecr-login@v2
-    
-    - name: Set IMAGE_TAG
-      shell: bash
-      run: |
-        IMAGE_TAG="${{ inputs.IMAGE_TAG }}"
-        if [[ -z "$IMAGE_TAG" ]]; then
-          IMAGE_TAG="${{ inputs.BRANCH_NAME }}"
-        fi
-        echo "Using IMAGE_TAG: $IMAGE_TAG"
-        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV 
-    
-    - name: Build Docker Image
-      shell: bash
-      run: |
-        export RAW_GH_KEY=$(echo -n "${{ inputs.GH_RAW_SSH_KEY }}" | sed ':a;N;$!ba;s/\n/\\n/g')
-        docker build -f ${{ inputs.DOCKERFILE_PATH }} \
-          --build-arg "GIT_KEY=${RAW_GH_KEY}" \
-          -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:$IMAGE_TAG \
-          ${{ inputs.BUILD_CONTEXT }}
-        
-    - name: Push Docker Image to ECR
-      shell: bash
-      run: |
-        docker push ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:$IMAGE_TAG
+  - name: Configure AWS Credentials
+    uses: aws-actions/configure-aws-credentials@v6
+    with:
+      aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
+      aws-region: ${{ inputs.AWS_REGION }}
+
+  - name: Login to Amazon ECR
+    uses: aws-actions/amazon-ecr-login@v2
+
+  - name: Set IMAGE_TAG
+    shell: bash
+    run: |
+      IMAGE_TAG="${{ inputs.IMAGE_TAG }}"
+      if [[ -z "$IMAGE_TAG" ]]; then
+        IMAGE_TAG="${{ inputs.BRANCH_NAME }}"
+      fi
+      echo "Using IMAGE_TAG: $IMAGE_TAG"
+      echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV 
+
+  - name: Build Docker Image
+    shell: bash
+    run: |
+      export RAW_GH_KEY=$(echo -n "${{ inputs.GH_RAW_SSH_KEY }}" | sed ':a;N;$!ba;s/\n/\\n/g')
+      docker build -f ${{ inputs.DOCKERFILE_PATH }} \
+        --build-arg "GIT_KEY=${RAW_GH_KEY}" \
+        -t ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:$IMAGE_TAG \
+        ${{ inputs.BUILD_CONTEXT }}
+
+  - name: Push Docker Image to ECR
+    shell: bash
+    run: |
+      docker push ${{ inputs.ECR_REGISTRY }}/${{ inputs.ECR_REPOSITORY }}:$IMAGE_TAG
