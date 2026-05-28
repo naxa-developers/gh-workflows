@@ -29,7 +29,7 @@ runs:
   using: 'composite'
   steps:
     - name: Setup AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v6
       if: ${{ inputs.USE_OIDC_FOR_AWS }} == 'true'
       with:
         audience: sts.amazonaws.com
@@ -38,7 +38,7 @@ runs:
         role-to-assume: ${{ inputs.AWS_OIDC_ROLE_ARN }}
 
     - name: Setup AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v6
       if: ${{ inputs.USE_OIDC_FOR_AWS }} == 'false'
       with:
         aws-region: ${{ inputs.AWS_REGION }}
