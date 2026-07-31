@@ -85,7 +85,7 @@ runs:
     shell: bash
     run: |
       docker compose --file docker-compose.yml pull
-      docker compose --file docker-compose.yml up --detach
+      docker compose --file docker-compose.yml up --detach --force-recreate
       if docker compose --file docker-compose.yml config --services | grep -qx 'nginx'; then
       echo "nginx service found — force recreating nginx..."
       docker compose --file docker-compose.yml up --detach --force-recreate --no-deps nginx
