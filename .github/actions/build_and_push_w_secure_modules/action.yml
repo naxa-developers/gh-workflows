@@ -43,6 +43,12 @@ inputs:
 runs:
   using: 'composite'
   steps:
+
+  - name: Checkout Code
+    uses: actions/checkout@v6
+    with:
+      ref: ${{ inputs.BRANCH_NAME }}
+
   - name: Copy Dependency Files
     shell: bash
     run: |
@@ -55,7 +61,7 @@ runs:
       fi
 
   - name: Configure AWS Credentials
-    uses: aws-actions/configure-aws-credentials@v5
+    uses: aws-actions/configure-aws-credentials@v6
     with:
       role-to-assume: ${{ inputs.AWS_ROLE_ARN }}
       aws-region: ${{ inputs.AWS_REGION }}
