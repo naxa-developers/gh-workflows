@@ -4,12 +4,9 @@ inputs:
   SSH_PRIVATE_KEY:
     required: true
     description: "The SSH private key to connect to the deployment server."
-  AWS_ACCESS_KEY_ID:
+  AWS_ROLE_ARN:
     required: true
-    description: "AWS access key for configuring AWS credentials."
-  AWS_SECRET_ACCESS_KEY:
-    required: true
-    description: "AWS secret key for configuring AWS credentials."
+    description: "IAM Role ARN to assume via GitHub OIDC"
   AWS_REGION:
     required: true
     description: "AWS region for configuring AWS credentials."
@@ -45,6 +42,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
+
   - name: Checkout Repository
     uses: actions/checkout@v6
 
@@ -60,9 +58,9 @@ runs:
 
   - name: Configure AWS Credentials
     uses: aws-actions/configure-aws-credentials@v6
+
     with:
-      aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY_ID }}
-      aws-secret-access-key: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
+      role-to-assume: ${{ inputs.AWS_ROLE_ARN }}
       aws-region: ${{ inputs.AWS_REGION }}
 
   - name: Login to Amazon ECR
